@@ -6,6 +6,16 @@ Grafana's default webhook JSON cannot be sent to Lark / Feishu as-is. This servi
 
 Sources that can only set a URL (for example DataWorks) can use `POST /dataworks/alert`, with the token and routing in query parameters.
 
+## Why this exists
+
+Grafana can post webhooks. Lark can receive bot messages. The two still do not meet without a thin adapter, for three reasons:
+
+1. **The payloads do not match.** Grafana's default webhook has no Lark `msg_type`. Pointing a contact point at a Lark webhook fails, or dumps raw JSON into the group.
+2. **A group dump is not on-call.** Alerts scrolling in a chat have no owner. Nobody claims them, and an ignored page sinks. The card needs "I got this", and the thread needs a name.
+3. **Some sources cannot even set headers.** DataWorks-style jobs only accept a URL, so the token and routing have to live in the query string.
+
+The forwarder stays thin on purpose: accept the alert, build a card, handle the click. On-call tables, AI attribution, and voice calls are optional side paths. If they are unset they never run; if they fail they must not block Grafana → Lark.
+
 ## Architecture
 
 The forwarder does three things: accept alerts, turn them into Lark cards, and handle card clicks. On-call routing, attribution, and voice are optional side paths.

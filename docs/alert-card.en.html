@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Alert card mock</title>
+  <style>
+    html, body { margin: 0; }
+    body {
+      background: #eceef1;
+      font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 28px;
+      width: 488px;
+    }
+    .card {
+      width: 432px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(31, 35, 41, 0.08);
+      overflow: hidden;
+    }
+    .header {
+      background: #c4564a;
+      color: #fff;
+      font-weight: 600;
+      font-size: 15px;
+      line-height: 1.4;
+      padding: 12px 16px;
+    }
+    .body { padding: 14px 16px 16px; }
+    .fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 20px;
+    }
+    .label {
+      color: #646a73;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .value { color: #1f2329; font-size: 14px; }
+    hr {
+      border: 0;
+      border-top: 1px solid #dee0e3;
+      margin: 14px 0;
+    }
+    .md {
+      font-size: 14px;
+      line-height: 1.65;
+      color: #1f2329;
+    }
+    .md + .md { margin-top: 10px; }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .btn {
+      border: 1px solid #d0d3d6;
+      background: #fff;
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-size: 13px;
+      color: #1f2329;
+    }
+    .btn.primary {
+      background: #3370ff;
+      border-color: #3370ff;
+      color: #fff;
+    }
+    .note {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #8f959e;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">[Grafana alert] FIRING HighP99Latency</div>
+    <div class="body">
+      <div class="fields">
+        <div><div class="label">Service</div><div class="value">api-gateway</div></div>
+        <div><div class="label">Env</div><div class="value">prod</div></div>
+        <div><div class="label">Severity</div><div class="value">P1</div></div>
+        <div><div class="label">Status</div><div class="value">FIRING</div></div>
+      </div>
+      <hr>
+      <div class="md"><b>Summary</b>: P99 latency above threshold<br><b>Details</b>: p99 &gt; 1s for 5 minutes</div>
+      <div class="md"><b>Owner</b>: @oncall　　<b>CC</b>: on-call pool</div>
+      <div class="md"><b>Started</b>: 2026-09-05 10:00:00　　<b>Value</b>: 1.37</div>
+      <div class="actions">
+        <span class="btn primary">I got this</span>
+        <span class="btn">Resolved</span>
+        <span class="btn">False alarm</span>
+        <span class="btn">AI attribution</span>
+        <span class="btn">Open dashboard</span>
+      </div>
+      <div class="note">incident #42</div>
+    </div>
+  </div>
+</body>
+</html>

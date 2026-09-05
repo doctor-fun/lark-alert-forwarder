@@ -48,9 +48,7 @@ Escalation (optional):
 
 The group sees a Lark interactive card, not the raw Grafana JSON. The header is colored by status: **red for FIRING**, **green for RESOLVED**, orange otherwise.
 
-![Alert card schematic](docs/alert-card-en.png)
-
-Source: [alert-card.en.puml](docs/alert-card.en.puml)
+![Alert card](docs/alert-card-en.png)
 
 | Area | Content |
 | --- | --- |

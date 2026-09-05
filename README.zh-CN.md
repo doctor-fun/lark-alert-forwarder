@@ -50,8 +50,6 @@ Forwarder 只做三件事：收告警、转成飞书卡片、处理卡片上的�
 
 ![告警卡片示意](docs/alert-card.png)
 
-源文件：[alert-card.puml](docs/alert-card.puml)
-
 | 区域 | 内容 |
 | --- | --- |
 | 标题 | `[Grafana告警] FIRING <alertname>` |

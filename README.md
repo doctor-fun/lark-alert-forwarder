@@ -19,6 +19,8 @@ The forwarder does three things: accept alerts, turn them into Lark cards, and h
 
 ![Architecture](docs/architecture-en.png)
 
+`/grafana/feishu` is the alert ingress. `/feishu/events` is Lark's event-subscription callback: Lark posts here after someone clicks a card. It is not a second alert endpoint. Saving the URL in the developer console first sends `url_verification`.
+
 Source: [architecture.en.puml](docs/architecture.en.puml)
 
 When an alert fires:
@@ -29,11 +31,11 @@ When an alert fires:
 4. With an app bot it sends an interactive card through OpenAPI. With only `FEISHU_WEBHOOK` it falls back to a custom bot, and buttons become links.
 5. If `ALERT_BACKEND_URL` is set, it also dedups / opens an incident and loads the on-call assignee.
 
-When someone clicks a card:
+When someone clicks a card (Lark calls back `/feishu/events`):
 
-1. Lark posts `card.action.trigger` to `POST /feishu/events` (after an initial `url_verification`).
-2. The forwarder verifies the request with the Verification Token / Encrypt Key and reads who clicked.
-3. Claim replies in the original thread and records the operator. AI attribution calls an optional runner, keeps a short summary in the thread, and can email the full report.
+1. The click happens on a Lark card. Lark's open platform POSTs `card.action.trigger` here, with the clicker's identity.
+2. The forwarder checks the Verification Token / Encrypt Key so it knows the request is from Lark.
+3. Claim replies in the original thread via OpenAPI and records the operator. AI attribution calls an optional runner, keeps a short summary in the thread, and can email the full report.
 
 Escalation (optional):
 

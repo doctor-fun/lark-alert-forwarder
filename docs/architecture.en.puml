@@ -9,7 +9,7 @@ skinparam RectangleBorderColor #888888
 skinparam PackageBorderColor #BBBBBB
 top to bottom direction
 
-title lark-alert-forwarder architecture
+title Two directions: alerts in / Lark calls back
 
 together {
   rectangle "Grafana Contact Point" as Grafana
@@ -17,44 +17,33 @@ together {
 }
 
 package "lark-alert-forwarder" {
-  rectangle "POST /grafana/feishu" as IngressG
-  rectangle "POST /dataworks/alert" as IngressD
-  rectangle "Check GRAFANA_FORWARDER_TOKEN" as Auth
-  rectangle "Pick chat by service / severity" as Route
-  rectangle "Build interactive card\nclaim / dashboard / AI" as Card
-  rectangle "POST /feishu/events" as IngressE
-  rectangle "Escalator\nL1 mention / L2 voice" as Esc
+  package "Alert ingress (systems → this service)" {
+    rectangle "POST /grafana/feishu" as IngressG
+    rectangle "POST /dataworks/alert" as IngressD
+    rectangle "Check token · pick chat · build card" as Process
+  }
+  package "Lark event callback (Lark → this service)" {
+    rectangle "POST /feishu/events\nnot an alert ingress\nurl_verification: handshake\ncard.action.trigger: someone clicked" as IngressE
+  }
+  rectangle "Escalator (optional)\nL1 mention / L2 voice if unclaimed" as Esc
 }
 
 package "Lark / Feishu" {
-  rectangle "OpenAPI\nsend card / reply in thread" as OpenAPI
+  rectangle "OpenAPI\nwe call Lark: send card / reply" as OpenAPI
   rectangle "Alert group" as Group
   actor "On-call" as User
 }
 
-package "Optional" {
-  rectangle "On-call / incident backend" as Backend
-  rectangle "Read-only Copilot runner" as Runner
-  rectangle "Aliyun TTS voice" as Voice
-}
-
-Grafana --> IngressG : Bearer token
-DataWorks --> IngressD : query token
-IngressG --> Auth
-IngressD --> Auth
-Auth --> Route
-Route --> Card
-Card --> OpenAPI
+Grafana --> IngressG
+DataWorks --> IngressD
+IngressG --> Process
+IngressD --> Process
+Process --> OpenAPI
 OpenAPI --> Group
-Route ..> Backend
 
-Group --> User
-User --> IngressE : card button click
-IngressE --> OpenAPI : claim / reassign
-IngressE ..> Runner : AI attribution
-Runner ..> OpenAPI : thread summary
+User --> Group : clicks "I got this"
+Group --> IngressE : event subscription callback
+IngressE --> OpenAPI : reply in thread with the operator
 
-Esc ..> Backend
 Esc ..> Group
-Esc ..> Voice
 @enduml

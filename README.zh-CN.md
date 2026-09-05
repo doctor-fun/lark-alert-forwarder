@@ -19,6 +19,8 @@ Forwarder 只做三件事：收告警、转成飞书卡片、处理卡片上的�
 
 ![架构图](docs/architecture.png)
 
+`/grafana/feishu` 是告警进线。`/feishu/events` 是飞书开放平台的事件订阅回调：人点卡片后飞书回打过来，不是第二条告警入口。在开放平台保存这个 URL 时，会先有一次 `url_verification` 握手。
+
 源文件：[architecture.puml](docs/architecture.puml)
 
 告警打进来：
@@ -29,11 +31,11 @@ Forwarder 只做三件事：收告警、转成飞书卡片、处理卡片上的�
 4. 配了应用机器人就走 OpenAPI 发互动卡片；只配了 `FEISHU_WEBHOOK` 就退化成自定义机器人，按钮变成普通链接。
 5. 配了 `ALERT_BACKEND_URL` 时，还会去重/建工单、拿值班人。
 
-人点卡片：
+人点卡片（飞书回打 `/feishu/events`）：
 
-1. 飞书把 `card.action.trigger` 打到 `POST /feishu/events`（先有一次 `url_verification`）。
-2. Forwarder 用 Verification Token / Encrypt Key 验过，看是谁点的。
-3. 「我来处理」在原线程回复并记下处理人；「AI 归因」调可选 runner，群里留摘要，全文可走邮件。
+1. 值班人点的是飞书卡片。飞书开放平台把 `card.action.trigger` POST 到本服务，请求里带着点击人身份。
+2. Forwarder 用 Verification Token / Encrypt Key 验过，确认是飞书来的。
+3. 「我来处理」走 OpenAPI 在原线程回复并记下处理人；「AI 归因」调可选 runner，群里留摘要，全文可走邮件。
 
 升级（可选）：
 

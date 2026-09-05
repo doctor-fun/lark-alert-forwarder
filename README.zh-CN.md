@@ -4,16 +4,18 @@
 
 Grafana 的默认 webhook JSON 不能直接发给飞书。这个服务把它转成飞书应用机器人互动卡片，并处理卡片按钮回调。
 
-```text
-Grafana 告警
-  -> POST /grafana/feishu
-  -> 飞书互动卡片
-  -> card.action.trigger
-  -> POST /feishu/events
-  -> 在原消息线程里回复
-```
-
 只会填 URL、不能加请求头的来源（例如 DataWorks）可以走 `POST /dataworks/alert`，用查询参数带 token 和路由信息。
+
+```mermaid
+flowchart LR
+  Grafana -->|POST /grafana/feishu| Forwarder
+  DataWorks -->|POST /dataworks/alert| Forwarder
+  Forwarder -->|互动卡片| 飞书群
+  飞书群 -->|card.action.trigger| Forwarder
+  Forwarder -->|原线程回复| 飞书群
+  Forwarder -.->|可选 AI 归因| Runner
+  Forwarder -.->|可选 L2 电话| Voice
+```
 
 ## 功能
 

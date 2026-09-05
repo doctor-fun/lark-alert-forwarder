@@ -4,16 +4,18 @@
 
 Grafana's default webhook JSON cannot be sent to Lark / Feishu as-is. This service turns it into an interactive app-bot card and handles button callbacks.
 
-```text
-Grafana alert
-  -> POST /grafana/feishu
-  -> Lark interactive card
-  -> card.action.trigger
-  -> POST /feishu/events
-  -> reply in the original thread
-```
-
 Sources that can only set a URL (for example DataWorks) can use `POST /dataworks/alert`, with the token and routing in query parameters.
+
+```mermaid
+flowchart LR
+  Grafana -->|POST /grafana/feishu| Forwarder
+  DataWorks -->|POST /dataworks/alert| Forwarder
+  Forwarder -->|interactive card| LarkGroup
+  LarkGroup -->|card.action.trigger| Forwarder
+  Forwarder -->|thread reply| LarkGroup
+  Forwarder -.->|optional AI attribution| Runner
+  Forwarder -.->|optional L2 voice| Voice
+```
 
 ## Features
 

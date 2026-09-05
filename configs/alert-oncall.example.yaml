@@ -1,0 +1,39 @@
+# matrix-alert-forwarder oncall 配置示例
+#
+# 部署说明：
+#   1. 真实环境请把本文件复制为 alert-oncall.yaml，放到 matrix-backend
+#      Pod 可读路径，并通过 ENV ALERT_ONCALL_FILE=/path/to/alert-oncall.yaml
+#      指给 matrix-backend。
+#   2. 推荐用 ConfigMap 挂载，方便不重启更新：
+#        envFrom: 不需要；直接 volumeMounts 把 ConfigMap 挂到 /etc/alert/oncall.yaml
+#      backend 默认每 5 分钟 reload 一次（ALERT_ONCALL_REFRESH 可调）。
+#   3. weight 越大被抽中概率越高；weight=0 等价于"暂时停抽"（OOO 也是这种效果）。
+
+default_pool:
+  - { open_id: ou_default_a, name: derek, weight: 3 }
+  - { open_id: ou_default_b, name: alice, weight: 2 }
+  - { open_id: ou_default_c, name: bob,   weight: 1 }
+
+services:
+  matrix-api:
+    pool:
+      - { open_id: ou_default_a, name: derek, weight: 5 }   # owner
+      - { open_id: ou_default_b, name: alice, weight: 1 }   # backup
+    leader: ou_lead_matrix_api
+
+  order-srv:
+    pool:
+      - { open_id: ou_default_c, name: bob,   weight: 5 }
+      - { open_id: ou_default_a, name: derek, weight: 1 }
+    leader: ou_lead_order
+
+# OOO（请假/出差），HR 同学手工维护；from/to 都是当天有效（含）。
+ooo:
+  - { open_id: ou_default_b, name: alice, from: 2026-05-12, to: 2026-05-15, reason: 年假 }
+  - { open_id: ou_default_a, name: derek, from: 2026-05-11, to: 2026-05-11, reason: 出差 }
+
+# 升级路径
+escalation:
+  l1_after: 5m              # 没 ACK 满 5 分钟 → @ service 池里所有人
+  l2_after: 15m             # 还是没 ACK → @ service.leader（缺省回 default_leader）
+  default_leader: ou_lead_matrix_api

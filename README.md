@@ -53,20 +53,52 @@ Health check: `GET /healthz`.
 
 Do not point Grafana 11 at Lark directly. The default webhook payload has no `msg_type`.
 
-## App bot vs custom webhook
+## Configure Lark / Feishu
 
-Set all of these to send cards through the Lark OpenAPI so buttons can call back:
+There are two modes. Claim buttons that identify who clicked, plus thread replies, need an **app bot**. A custom webhook bot can only send cards; buttons become plain links.
 
-- `FEISHU_APP_ID`
-- `FEISHU_APP_SECRET`
-- `FEISHU_CHAT_ID`
+### Custom bot (send only)
 
-Also recommended:
+1. Open the target group → Settings → Bots → add a **Custom bot**.
+2. Copy the webhook into `FEISHU_WEBHOOK`.
+3. Point Grafana at this service, not at the webhook.
 
-- `FEISHU_VERIFICATION_TOKEN`
-- `FEISHU_ENCRYPT_KEY`
+Limit: custom bots cannot reliably identify who clicked a card button.
 
-If only `FEISHU_WEBHOOK` is set, the service uses a custom bot webhook and claim becomes a URL button.
+### App bot (recommended)
+
+Create an **enterprise custom app** at [open.feishu.cn](https://open.feishu.cn/app) (or [open.larksuite.com](https://open.larksuite.com/app)).
+
+1. **Add capabilities** → enable **Bot**.
+2. **Permissions** — apply and publish (tenant admin must approve):
+   - `im:message` / `im:message:send_as_bot` — send cards and reply in a thread
+   - `im:chat:readonly` — list chats the bot is in, to find `chat_id`
+   - Add `contact:user.email:readonly` only if you email attribution reports. See [Alert Copilot email](docs/alert-copilot-email.md)
+3. **Event subscriptions**:
+   - Request URL: `https://<your-forwarder>/feishu/events` (public HTTPS; Feishu sends `url_verification` first)
+   - Enable encryption; save the Verification Token and Encrypt Key
+   - Subscribe to `card.action.trigger` (card buttons)
+   - Also subscribe to `im.message.receive_v1` if you want in-group commands or feedback on-call hints
+4. **Version management** — publish a new version and wait for admin approval.
+5. Add the bot to the alert group.
+6. Get the group `chat_id` (starts with `oc_`):
+   - `GET /open-apis/im/v1/chats` with a tenant access token
+   - or subscribe to `im.message.receive_v1`, @ the bot, and read `chat_id` from the event
+
+Then set:
+
+```bash
+export FEISHU_APP_ID="cli_xxx"
+export FEISHU_APP_SECRET="xxx"
+export FEISHU_CHAT_ID="oc_xxx"
+export FEISHU_VERIFICATION_TOKEN="xxx"
+export FEISHU_ENCRYPT_KEY="xxx"
+export GRAFANA_FORWARDER_TOKEN="change-me"
+```
+
+`FEISHU_P1_CHAT_ID` is optional for a separate P1/P2 chat. Route by service with `SERVICE_CHAT_ROUTES=api=oc_aaa;data=oc_bbb`.
+
+Permission or event changes do nothing until you publish a new app version. Saving a draft is not enough.
 
 ## Environment variables
 

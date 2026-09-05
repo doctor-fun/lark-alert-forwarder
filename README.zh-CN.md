@@ -53,20 +53,52 @@ docker run --rm -p 8080:8080 \
 
 不要让 Grafana 11 直接打飞书。默认 webhook 没有飞书要的 `msg_type`。
 
-## 应用机器人 vs 自定义机器人
+## 配置飞书
 
-同时配置这些变量后，会走飞书 OpenAPI，卡片按钮可以回调回来：
+有两种接法。要「我来处理」识别点击人、并在原线程回复，必须用应用机器人。自定义机器人只能发卡片，按钮只能做成跳转链接。
 
-- `FEISHU_APP_ID`
-- `FEISHU_APP_SECRET`
-- `FEISHU_CHAT_ID`
+### 自定义机器人（只发不回）
 
-另外建议配置：
+1. 打开目标飞书群 → 设置 → 群机器人 → 添加 **自定义机器人**。
+2. 复制 webhook，配到 `FEISHU_WEBHOOK`。
+3. Grafana 照常打到本服务，不要直接打这个 webhook。
 
-- `FEISHU_VERIFICATION_TOKEN`
-- `FEISHU_ENCRYPT_KEY`
+限制：飞书自定义机器人没有可靠的卡片回调身份，点「我来处理」无法知道是谁。
 
-只配 `FEISHU_WEBHOOK` 时走自定义机器人，`我来处理` 会变成普通链接按钮。
+### 应用机器人（推荐）
+
+在 [飞书开放平台](https://open.feishu.cn/app) 创建**企业自建应用**。
+
+1. **添加应用能力** → 启用 **机器人**。
+2. **权限管理** 申请并发布（管理员审批）：
+   - `im:message` / `im:message:send_as_bot`：以机器人身份发卡片、回线程
+   - `im:chat:readonly`：列出机器人所在群，方便拿 `chat_id`
+   - 要用邮件归因时再加 `contact:user.email:readonly`，见 [Alert Copilot 邮件](docs/alert-copilot-email.md)
+3. **事件订阅**：
+   - 请求网址：`https://<your-forwarder>/feishu/events`（必须公网 HTTPS，飞书会先发 `url_verification`）
+   - 打开加密，记下 Verification Token、Encrypt Key
+   - 订阅 `card.action.trigger`（卡片按钮）
+   - 若要用群内指令或反馈值班，再订 `im.message.receive_v1`
+4. **版本管理** 发布新版本，等租户管理员通过。
+5. 把机器人拉进告警群。
+6. 取群 `chat_id`（`oc_` 开头）：
+   - 用 tenant token 调 `GET /open-apis/im/v1/chats`
+   - 或先订 `im.message.receive_v1`，在群里 @ 机器人，日志/回调里会带 `chat_id`
+
+然后配环境变量：
+
+```bash
+export FEISHU_APP_ID="cli_xxx"
+export FEISHU_APP_SECRET="xxx"
+export FEISHU_CHAT_ID="oc_xxx"
+export FEISHU_VERIFICATION_TOKEN="xxx"
+export FEISHU_ENCRYPT_KEY="xxx"
+export GRAFANA_FORWARDER_TOKEN="change-me"
+```
+
+`FEISHU_P1_CHAT_ID` 可选，P1/P2 另投一个群。多个服务分流用 `SERVICE_CHAT_ROUTES=api=oc_aaa;data=oc_bbb`。
+
+改完权限或事件后必须重新发布应用版本，只保存草稿不会生效。
 
 ## 环境变量
 

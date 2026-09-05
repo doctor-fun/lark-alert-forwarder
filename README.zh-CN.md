@@ -11,15 +11,15 @@ Grafana 能发 webhook，飞书能收机器人消息，中间却缺一层，直�
 1. **格式对不上。** Grafana 默认 payload 没有飞书要的 `msg_type`，Contact Point 直连飞书 webhook 会失败，或变成一坨没人看的 JSON。
 2. **进群不等于有人处理。** 告警刷在群里，没有认领、不知道谁在看、没人点就石沉大海。需要卡片上的「我来处理」，并在原线程留下处理人。
 
-所以这个服务故意做薄：只负责收告警、转成互动卡片、处理按钮点击。值班表、AI 归因、电话升级都是可选旁路——不配就不走，旁路挂了也不能挡住 Grafana → 飞书这条主链路。
+所以这个服务故意做薄：只负责收告警、转成互动卡片、处理按钮点击。值班表、AI 归因、电话升级、定时催办都是可选旁路——不配就不走，旁路挂了也不能挡住 Grafana → 飞书这条主链路。
 
 ## 架构
 
-Forwarder 只做三件事：收告警、转成飞书卡片、处理卡片上的按钮点击。值班、归因、电话都是可选旁路，不配就不走。
+Forwarder 主链路只做三件事：收告警、转成飞书卡片、处理卡片上的按钮点击。值班、归因、电话、定时催办都是可选旁路，不配就不走。
 
 ![架构图](docs/architecture.png)
 
-`/grafana/feishu` 是告警进线。`/feishu/events` 是飞书开放平台的事件订阅回调：人点卡片后飞书回打过来，不是第二条告警入口。在开放平台保存这个 URL 时，会先有一次 `url_verification` 握手。
+`/grafana/feishu` 是告警进线。`/feishu/events` 是飞书开放平台的事件订阅回调：人点卡片后飞书回打过来，不是第二条告警入口。在开放平台保存这个 URL 时，会先有一次 `url_verification` 握手。定时问题处理不走 Grafana，是本服务自己扫多维表格，再发催办卡。
 
 源文件：[architecture.puml](docs/architecture.puml)
 
@@ -43,6 +43,14 @@ Forwarder 只做三件事：收告警、转成飞书卡片、处理卡片上的�
 2. 过 L1：在原线程 @ 值班池。
 3. 过 L2：再 @ leader，并按白名单严重度打阿里云 TTS 电话。
 
+定时问题处理（可选）：
+
+告警之外，还可以盯一张飞书多维表格里的待办。不配表格、不配应用机器人就不跑；挂了也不挡告警主链路。人点催办卡上的按钮，仍然走 `/feishu/events`。
+
+1. 群里用卡片把问题分给候选人（轮询或点名）。
+2. **超时催办**：超过 `DIRTY_WORK_TIMEOUT_REMINDER_AFTER`（默认 48h）还没完成，按间隔再发一张卡。
+3. **议题催办**：按某个字段筛未完成记录（例如某次发布），定时发到指定群。
+
 ## 告警卡片
 
 群里看到的是一张飞书互动卡片，不是 Grafana 原文。标题栏按状态染色：**FIRING 红**、**RESOLVED 绿**、其它橙。
@@ -65,6 +73,7 @@ Forwarder 只做三件事：收告警、转成飞书卡片、处理卡片上的�
 - Grafana / DataWorks webhook → 飞书互动卡片
 - `我来处理`、升级、重新指派等卡片回调
 - 可选值班路由、电话升级、只读 AI 归因
+- 可选定时问题处理：扫多维表格，超时 / 按议题再催
 - 未配置应用机器人时，回退到自定义机器人 webhook
 
 ## 快速开始
@@ -156,7 +165,10 @@ export GRAFANA_FORWARDER_TOKEN="change-me"
 | `GRAFANA_FORWARDER_TOKEN` | Grafana / DataWorks 调用本服务的 token |
 | `LISTEN_ADDR` | 默认 `:8080` |
 | `SERVICE_CHAT_ROUTES` | `service=oc_xxx;other=oc_yyy` 按服务分流 |
-| `DIRTY_WORK_CANDIDATES` | `Alice\|ou_xxx,Bob\|ou_yyy`，无默认值 |
+| `DIRTY_WORK_CANDIDATES` | `Alice\|ou_xxx,Bob\|ou_yyy`。无默认值；有多维表格时以表为准 |
+| `DIRTY_WORK_BITABLE_APP_TOKEN` 及表/字段 | 待办多维表格。不配则定时催办不启动 |
+| `DIRTY_WORK_TIMEOUT_REMINDER_CHAT_ID` / `_AFTER` / `_INTERVAL` | 超时未完成再催。默认 48h / 10m |
+| `DIRTY_WORK_TOPIC_REMINDER` | `议题名\|oc_xxx\|30m` 按字段筛未完成再催 |
 | `USER_FEEDBACK_ONCALL_CHAT_ID` / `USER_FEEDBACK_ONCALL_CANDIDATES` | 反馈群值班提示 |
 | `COPILOT_RUNNER_URL` / `COPILOT_RUNNER_AGENT` | 把 AI 归因交给外部 runner |
 | `COPILOT_RUNNER_COMMAND` | 未配 URL 时 fork 本地命令 |

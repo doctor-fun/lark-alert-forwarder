@@ -9,7 +9,7 @@ skinparam RectangleBorderColor #888888
 skinparam PackageBorderColor #BBBBBB
 top to bottom direction
 
-title 两条方向：告警打进来 / 飞书回打过来
+title 三条路：告警打进来 / 飞书回打 / 定时催办
 
 together {
   rectangle "Grafana Contact Point" as Grafana
@@ -25,12 +25,16 @@ package "lark-alert-forwarder" {
   package "飞书事件回调（飞书 → 本服务）" {
     rectangle "POST /feishu/events\n不是告警入口\nurl_verification：开放平台握手\ncard.action.trigger：有人点了卡片" as IngressE
   }
-  rectangle "Escalator（可选）\n未认领则 L1 @ / L2 电话" as Esc
+  rectangle "Escalator（可选）\n未认领告警则 L1 @ / L2 电话" as Esc
+  package "定时问题处理（可选，本服务自己扫）" {
+    rectangle "读多维表格里未完成的待办\n超时未完成再催 / 按议题再催" as Sweep
+  }
 }
 
 package "飞书" {
   rectangle "OpenAPI\n本服务主动调用：发卡片 / 回线程" as OpenAPI
   rectangle "告警群" as Group
+  rectangle "多维表格（待办）" as Bitable
   actor "值班人" as User
 }
 
@@ -46,4 +50,6 @@ Group --> IngressE : 事件订阅回打
 IngressE --> OpenAPI : 回线程记下处理人
 
 Esc ..> Group
+Sweep ..> Bitable : 读未完成
+Sweep --> OpenAPI : 发催办卡
 @enduml

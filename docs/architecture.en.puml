@@ -9,7 +9,7 @@ skinparam RectangleBorderColor #888888
 skinparam PackageBorderColor #BBBBBB
 top to bottom direction
 
-title Two directions: alerts in / Lark calls back
+title Three paths: alerts in / Lark callback / scheduled nags
 
 together {
   rectangle "Grafana Contact Point" as Grafana
@@ -25,12 +25,16 @@ package "lark-alert-forwarder" {
   package "Lark event callback (Lark → this service)" {
     rectangle "POST /feishu/events\nnot an alert ingress\nurl_verification: handshake\ncard.action.trigger: someone clicked" as IngressE
   }
-  rectangle "Escalator (optional)\nL1 mention / L2 voice if unclaimed" as Esc
+  rectangle "Escalator (optional)\nL1 mention / L2 voice if alert unclaimed" as Esc
+  package "Scheduled issues (optional, we poll)" {
+    rectangle "Read open rows in a Bitable\nnag if overdue / nag by topic" as Sweep
+  }
 }
 
 package "Lark / Feishu" {
   rectangle "OpenAPI\nwe call Lark: send card / reply" as OpenAPI
   rectangle "Alert group" as Group
+  rectangle "Bitable (open tasks)" as Bitable
   actor "On-call" as User
 }
 
@@ -46,4 +50,6 @@ Group --> IngressE : event subscription callback
 IngressE --> OpenAPI : reply in thread with the operator
 
 Esc ..> Group
+Sweep ..> Bitable : read open rows
+Sweep --> OpenAPI : send nag card
 @enduml

@@ -11,15 +11,15 @@ Grafana can post webhooks. Lark can receive bot messages. The two still do not m
 1. **The payloads do not match.** Grafana's default webhook has no Lark `msg_type`. Pointing a contact point at a Lark webhook fails, or dumps raw JSON into the group.
 2. **A group dump is not on-call.** Alerts scrolling in a chat have no owner. Nobody claims them, and an ignored page sinks. The card needs "I got this", and the thread needs a name.
 
-The forwarder stays thin on purpose: accept the alert, build a card, handle the click. On-call tables, AI attribution, and voice calls are optional side paths. If they are unset they never run; if they fail they must not block Grafana → Lark.
+The forwarder stays thin on purpose: accept the alert, build a card, handle the click. On-call tables, AI attribution, voice calls, and scheduled nags are optional side paths. If they are unset they never run; if they fail they must not block Grafana → Lark.
 
 ## Architecture
 
-The forwarder does three things: accept alerts, turn them into Lark cards, and handle card clicks. On-call routing, attribution, and voice are optional side paths.
+The forwarder does three things on the main path: accept alerts, turn them into Lark cards, and handle card clicks. On-call routing, attribution, voice, and scheduled nags are optional side paths.
 
 ![Architecture](docs/architecture-en.png)
 
-`/grafana/feishu` is the alert ingress. `/feishu/events` is Lark's event-subscription callback: Lark posts here after someone clicks a card. It is not a second alert endpoint. Saving the URL in the developer console first sends `url_verification`.
+`/grafana/feishu` is the alert ingress. `/feishu/events` is Lark's event-subscription callback: Lark posts here after someone clicks a card. It is not a second alert endpoint. Saving the URL in the developer console first sends `url_verification`. Scheduled issue nags do not go through Grafana; this service polls a Bitable and sends its own cards.
 
 Source: [architecture.en.puml](docs/architecture.en.puml)
 
@@ -43,6 +43,14 @@ Escalation (optional):
 2. After L1: mention the on-call pool in the same thread.
 3. After L2: mention the leader and, for allowlisted severities, place an Aliyun TTS voice call.
 
+Scheduled issue handling (optional):
+
+Besides alerts, the forwarder can watch open tasks in a Lark Bitable. With no table or no app bot it never runs, and a failure must not block the Grafana path. Clicks on nag cards still come back through `/feishu/events`.
+
+1. A group card assigns a task to a candidate (round-robin or by name).
+2. **Overdue nag**: if a task is still open after `DIRTY_WORK_TIMEOUT_REMINDER_AFTER` (default 48h), send another card on an interval.
+3. **Topic nag**: filter open rows by a field (for example a release), and post to a chosen chat on a timer.
+
 ## Alert card
 
 The group sees a Lark interactive card, not the raw Grafana JSON. The header is colored by status: **red for FIRING**, **green for RESOLVED**, orange otherwise.
@@ -65,6 +73,7 @@ With only a custom bot, buttons become links and the click has no identity. The 
 - Grafana / DataWorks webhook → Lark interactive card
 - Card callbacks such as claim, escalate, and reassign
 - Optional on-call routing, voice escalation, and read-only AI attribution
+- Optional scheduled issue nags: poll a Bitable, remind if overdue or by topic
 - Falls back to a custom bot webhook when the app bot is not configured
 
 ## Quick start
@@ -156,7 +165,10 @@ Keep secrets in environment variables or a Secret. Do not commit them.
 | `GRAFANA_FORWARDER_TOKEN` | Token for Grafana / DataWorks calls |
 | `LISTEN_ADDR` | Default `:8080` |
 | `SERVICE_CHAT_ROUTES` | `service=oc_xxx;other=oc_yyy` per-service routing |
-| `DIRTY_WORK_CANDIDATES` | `Alice\|ou_xxx,Bob\|ou_yyy`. No built-in default |
+| `DIRTY_WORK_CANDIDATES` | `Alice\|ou_xxx,Bob\|ou_yyy`. No built-in default; Bitable wins when configured |
+| `DIRTY_WORK_BITABLE_APP_TOKEN` and table/field IDs | Open-task Bitable. Unset means scheduled nags never start |
+| `DIRTY_WORK_TIMEOUT_REMINDER_CHAT_ID` / `_AFTER` / `_INTERVAL` | Nag if still open. Defaults 48h / 10m |
+| `DIRTY_WORK_TOPIC_REMINDER` | `topic\|oc_xxx\|30m` — nag open rows filtered by a field |
 | `USER_FEEDBACK_ONCALL_CHAT_ID` / `USER_FEEDBACK_ONCALL_CANDIDATES` | Feedback-group on-call hints |
 | `COPILOT_RUNNER_URL` / `COPILOT_RUNNER_AGENT` | Delegate AI attribution to an external runner |
 | `COPILOT_RUNNER_COMMAND` | Fork a local command when no runner URL is set |

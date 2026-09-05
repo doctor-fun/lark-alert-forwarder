@@ -13,7 +13,7 @@ title lark-alert-forwarder 架构
 
 together {
   rectangle "Grafana Contact Point" as Grafana
-  rectangle "DataWorks / 其它只填 URL 的系统" as DataWorks
+  rectangle "DataWorks 等非 Grafana 来源" as DataWorks
 }
 
 package "lark-alert-forwarder" {

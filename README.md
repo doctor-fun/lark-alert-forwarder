@@ -4,15 +4,12 @@
 
 Grafana's default webhook JSON cannot be sent to Lark / Feishu as-is. This service turns it into an interactive app-bot card and handles button callbacks.
 
-Sources that can only set a URL (for example DataWorks) can use `POST /dataworks/alert`, with the token and routing in query parameters.
-
 ## Why this exists
 
-Grafana can post webhooks. Lark can receive bot messages. The two still do not meet without a thin adapter, for three reasons:
+Grafana can post webhooks. Lark can receive bot messages. The two still do not meet without a thin adapter, for two reasons:
 
 1. **The payloads do not match.** Grafana's default webhook has no Lark `msg_type`. Pointing a contact point at a Lark webhook fails, or dumps raw JSON into the group.
 2. **A group dump is not on-call.** Alerts scrolling in a chat have no owner. Nobody claims them, and an ignored page sinks. The card needs "I got this", and the thread needs a name.
-3. **Some sources cannot even set headers.** DataWorks-style jobs only accept a URL, so the token and routing have to live in the query string.
 
 The forwarder stays thin on purpose: accept the alert, build a card, handle the click. On-call tables, AI attribution, and voice calls are optional side paths. If they are unset they never run; if they fail they must not block Grafana → Lark.
 
@@ -27,7 +24,7 @@ Source: [architecture.en.puml](docs/architecture.en.puml)
 When an alert fires:
 
 1. Grafana posts to `POST /grafana/feishu` with `Authorization: Bearer`. Do not point Grafana at Lark; the default payload has no `msg_type`.
-2. URL-only sources post to `POST /dataworks/alert`, with the token plus `service` / `severity` in the query string.
+2. Sources whose body is not a Grafana webhook (for example DataWorks) post to `POST /dataworks/alert`. The adapter maps them onto the same card path. Routing (`service` / `severity`) and the token can sit on the query string, because those bodies are not a stable schema.
 3. The forwarder checks the token, reads labels, and picks a chat via `SERVICE_CHAT_ROUTES` or `FEISHU_P1_CHAT_ID`.
 4. With an app bot it sends an interactive card through OpenAPI. With only `FEISHU_WEBHOOK` it falls back to a custom bot, and buttons become links.
 5. If `ALERT_BACKEND_URL` is set, it also dedups / opens an incident and loads the on-call assignee.
@@ -164,7 +161,7 @@ Keep secrets in environment variables or a Secret. Do not commit them.
 | `SMTP_*` / `EMAIL_FALLBACK_TO` | Email the full attribution report |
 | `ALIYUN_VOICE_*` | L2 voice escalation. See `docs/aliyun-voice-alerting.md` |
 
-DataWorks example:
+Example for DataWorks and other non-Grafana sources (body schema is unstable, so routing lives on the query string):
 
 ```text
 https://<your-forwarder>/dataworks/alert?token=<GRAFANA_FORWARDER_TOKEN>&service=data-platform&severity=P1&alertname=DataSyncFailed&env=prod

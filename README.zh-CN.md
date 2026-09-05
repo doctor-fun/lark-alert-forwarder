@@ -4,15 +4,12 @@
 
 Grafana 的默认 webhook JSON 不能直接发给飞书。这个服务把它转成飞书应用机器人互动卡片，并处理卡片按钮回调。
 
-只会填 URL、不能加请求头的来源（例如 DataWorks）可以走 `POST /dataworks/alert`，用查询参数带 token 和路由信息。
-
 ## 设计初衷
 
-Grafana 能发 webhook，飞书能收机器人消息，中间却缺一层，直接对接会卡住三件事：
+Grafana 能发 webhook，飞书能收机器人消息，中间却缺一层，直接对接会卡住两件事：
 
 1. **格式对不上。** Grafana 默认 payload 没有飞书要的 `msg_type`，Contact Point 直连飞书 webhook 会失败，或变成一坨没人看的 JSON。
 2. **进群不等于有人处理。** 告警刷在群里，没有认领、不知道谁在看、没人点就石沉大海。需要卡片上的「我来处理」，并在原线程留下处理人。
-3. **有的来源连请求头都加不了。** DataWorks 这类只能填一个 URL，token 和路由只能放查询参数。
 
 所以这个服务故意做薄：只负责收告警、转成互动卡片、处理按钮点击。值班表、AI 归因、电话升级都是可选旁路——不配就不走，旁路挂了也不能挡住 Grafana → 飞书这条主链路。
 
@@ -27,7 +24,7 @@ Forwarder 只做三件事：收告警、转成飞书卡片、处理卡片上的�
 告警打进来：
 
 1. Grafana 用 webhook Contact Point 打 `POST /grafana/feishu`，带 `Authorization: Bearer`。不要让 Grafana 直连飞书，默认 payload 没有 `msg_type`。
-2. DataWorks 这类只能配 URL 的来源打 `POST /dataworks/alert`，token 和 `service` / `severity` 放查询参数。
+2. DataWorks 等正文不是 Grafana webhook 的来源打 `POST /dataworks/alert`，适配后再走同一条发卡片链路。路由（`service` / `severity` 等）和 token 可以放在查询参数里，因为这类来源的 body 字段不统一。
 3. Forwarder 校验 token，读 label，按 `SERVICE_CHAT_ROUTES`、`FEISHU_P1_CHAT_ID` 选群。
 4. 配了应用机器人就走 OpenAPI 发互动卡片；只配了 `FEISHU_WEBHOOK` 就退化成自定义机器人，按钮变成普通链接。
 5. 配了 `ALERT_BACKEND_URL` 时，还会去重/建工单、拿值班人。
@@ -164,7 +161,7 @@ export GRAFANA_FORWARDER_TOKEN="change-me"
 | `SMTP_*` / `EMAIL_FALLBACK_TO` | 把完整归因报告发邮件 |
 | `ALIYUN_VOICE_*` | L2 电话升级，见 `docs/aliyun-voice-alerting.md` |
 
-DataWorks 示例：
+DataWorks 等非 Grafana 来源示例（body 字段不统一，路由放查询参数）：
 
 ```text
 https://<your-forwarder>/dataworks/alert?token=<GRAFANA_FORWARDER_TOKEN>&service=data-platform&severity=P1&alertname=DataSyncFailed&env=prod

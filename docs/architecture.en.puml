@@ -13,7 +13,7 @@ title lark-alert-forwarder architecture
 
 together {
   rectangle "Grafana Contact Point" as Grafana
-  rectangle "DataWorks / other URL-only sources" as DataWorks
+  rectangle "DataWorks and other non-Grafana sources" as DataWorks
 }
 
 package "lark-alert-forwarder" {

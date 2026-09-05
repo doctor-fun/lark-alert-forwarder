@@ -10,56 +10,9 @@ Sources that can only set a URL (for example DataWorks) can use `POST /dataworks
 
 The forwarder does three things: accept alerts, turn them into Lark cards, and handle card clicks. On-call routing, attribution, and voice are optional side paths.
 
-```mermaid
-flowchart TB
-  subgraph Sources
-    Grafana["Grafana contact point"]
-    DataWorks["DataWorks / URL-only sources"]
-  end
+![Architecture](docs/architecture-en.png)
 
-  subgraph Forwarder["lark-alert-forwarder"]
-    Auth["Check GRAFANA_FORWARDER_TOKEN"]
-    IngressG["POST /grafana/feishu"]
-    IngressD["POST /dataworks/alert"]
-    IngressE["POST /feishu/events"]
-    Route["Pick chat by service / severity"]
-    Card["Build interactive card\nclaim / dashboard / AI"]
-    Esc["Escalator loop\nL1 mention / L2 voice"]
-  end
-
-  subgraph Lark
-    OpenAPI["OpenAPI\nsend card / reply in thread"]
-    Group["Alert group"]
-    User["On-call clicks a button"]
-  end
-
-  subgraph Optional
-    Backend["On-call / incident backend\nALERT_BACKEND_URL"]
-    Runner["Read-only Copilot runner"]
-    Voice["Aliyun TTS voice"]
-  end
-
-  Grafana -->|"Bearer token"| IngressG
-  DataWorks -->|"?token=&service=&severity="| IngressD
-  IngressG --> Auth
-  IngressD --> Auth
-  Auth --> Route
-  Route --> Card
-  Card --> OpenAPI
-  OpenAPI --> Group
-  Route -.-> Backend
-
-  Group --> User
-  User -->|"card.action.trigger"| IngressE
-  IngressE -->|"url_verification / verify"| Card
-  IngressE -->|"claim / reassign"| OpenAPI
-  IngressE -.->|"AI attribution"| Runner
-  Runner -.->|"thread summary / email body"| OpenAPI
-
-  Esc -.-> Backend
-  Esc -.-> Group
-  Esc -.-> Voice
-```
+Source: [architecture.en.puml](docs/architecture.en.puml)
 
 When an alert fires:
 

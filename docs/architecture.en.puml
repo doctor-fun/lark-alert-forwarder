@@ -1,0 +1,60 @@
+@startuml architecture-en
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName "Helvetica"
+skinparam ArrowColor #555555
+skinparam RectangleBorderColor #888888
+skinparam PackageBorderColor #BBBBBB
+top to bottom direction
+
+title lark-alert-forwarder architecture
+
+together {
+  rectangle "Grafana Contact Point" as Grafana
+  rectangle "DataWorks / other URL-only sources" as DataWorks
+}
+
+package "lark-alert-forwarder" {
+  rectangle "POST /grafana/feishu" as IngressG
+  rectangle "POST /dataworks/alert" as IngressD
+  rectangle "Check GRAFANA_FORWARDER_TOKEN" as Auth
+  rectangle "Pick chat by service / severity" as Route
+  rectangle "Build interactive card\nclaim / dashboard / AI" as Card
+  rectangle "POST /feishu/events" as IngressE
+  rectangle "Escalator\nL1 mention / L2 voice" as Esc
+}
+
+package "Lark / Feishu" {
+  rectangle "OpenAPI\nsend card / reply in thread" as OpenAPI
+  rectangle "Alert group" as Group
+  actor "On-call" as User
+}
+
+package "Optional" {
+  rectangle "On-call / incident backend" as Backend
+  rectangle "Read-only Copilot runner" as Runner
+  rectangle "Aliyun TTS voice" as Voice
+}
+
+Grafana --> IngressG : Bearer token
+DataWorks --> IngressD : query token
+IngressG --> Auth
+IngressD --> Auth
+Auth --> Route
+Route --> Card
+Card --> OpenAPI
+OpenAPI --> Group
+Route ..> Backend
+
+Group --> User
+User --> IngressE : card button click
+IngressE --> OpenAPI : claim / reassign
+IngressE ..> Runner : AI attribution
+Runner ..> OpenAPI : thread summary
+
+Esc ..> Backend
+Esc ..> Group
+Esc ..> Voice
+@enduml

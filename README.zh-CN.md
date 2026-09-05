@@ -10,56 +10,9 @@ Grafana 的默认 webhook JSON 不能直接发给飞书。这个服务把它转�
 
 Forwarder 只做三件事：收告警、转成飞书卡片、处理卡片上的按钮点击。值班、归因、电话都是可选旁路，不配就不走。
 
-```mermaid
-flowchart TB
-  subgraph Sources["告警来源"]
-    Grafana["Grafana Contact Point"]
-    DataWorks["DataWorks / 其它只能填 URL 的系统"]
-  end
+![架构图](docs/architecture.png)
 
-  subgraph Forwarder["lark-alert-forwarder"]
-    Auth["校验 GRAFANA_FORWARDER_TOKEN"]
-    IngressG["POST /grafana/feishu"]
-    IngressD["POST /dataworks/alert"]
-    IngressE["POST /feishu/events"]
-    Route["按 service / severity 选群"]
-    Card["拼互动卡片\n我来处理 / 打开大盘 / AI 归因"]
-    Esc["Escalator 定时扫描\nL1 @ 值班 / L2 电话"]
-  end
-
-  subgraph Lark["飞书"]
-    OpenAPI["OpenAPI\n发卡片 / 回线程"]
-    Group["告警群"]
-    User["值班人点按钮"]
-  end
-
-  subgraph Optional["可选"]
-    Backend["值班 / 工单后端\nALERT_BACKEND_URL"]
-    Runner["只读 Copilot runner"]
-    Voice["阿里云 TTS 电话"]
-  end
-
-  Grafana -->|"Bearer token"| IngressG
-  DataWorks -->|"?token=&service=&severity="| IngressD
-  IngressG --> Auth
-  IngressD --> Auth
-  Auth --> Route
-  Route --> Card
-  Card --> OpenAPI
-  OpenAPI --> Group
-  Route -.-> Backend
-
-  Group --> User
-  User -->|"card.action.trigger"| IngressE
-  IngressE -->|"url_verification / 验签"| Card
-  IngressE -->|"认领 / 转派"| OpenAPI
-  IngressE -.->|"AI 归因"| Runner
-  Runner -.->|"摘要回线程 / 全文走邮件"| OpenAPI
-
-  Esc -.-> Backend
-  Esc -.-> Group
-  Esc -.-> Voice
-```
+源文件：[architecture.puml](docs/architecture.puml)
 
 告警打进来：
 

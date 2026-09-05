@@ -1,0 +1,60 @@
+@startuml architecture
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam componentStyle rectangle
+skinparam defaultFontName "PingFang SC"
+skinparam ArrowColor #555555
+skinparam RectangleBorderColor #888888
+skinparam PackageBorderColor #BBBBBB
+top to bottom direction
+
+title lark-alert-forwarder 架构
+
+together {
+  rectangle "Grafana Contact Point" as Grafana
+  rectangle "DataWorks / 其它只填 URL 的系统" as DataWorks
+}
+
+package "lark-alert-forwarder" {
+  rectangle "POST /grafana/feishu" as IngressG
+  rectangle "POST /dataworks/alert" as IngressD
+  rectangle "校验 GRAFANA_FORWARDER_TOKEN" as Auth
+  rectangle "按 service / severity 选群" as Route
+  rectangle "拼互动卡片\n我来处理 / 打开大盘 / AI 归因" as Card
+  rectangle "POST /feishu/events" as IngressE
+  rectangle "Escalator\nL1 @ 值班 / L2 电话" as Esc
+}
+
+package "飞书" {
+  rectangle "OpenAPI\n发卡片 / 回线程" as OpenAPI
+  rectangle "告警群" as Group
+  actor "值班人" as User
+}
+
+package "可选" {
+  rectangle "值班 / 工单后端" as Backend
+  rectangle "只读 Copilot runner" as Runner
+  rectangle "阿里云 TTS 电话" as Voice
+}
+
+Grafana --> IngressG : Bearer token
+DataWorks --> IngressD : query token
+IngressG --> Auth
+IngressD --> Auth
+Auth --> Route
+Route --> Card
+Card --> OpenAPI
+OpenAPI --> Group
+Route ..> Backend
+
+Group --> User
+User --> IngressE : 点击卡片按钮
+IngressE --> OpenAPI : 认领 / 转派
+IngressE ..> Runner : AI 归因
+Runner ..> OpenAPI : 摘要回线程
+
+Esc ..> Backend
+Esc ..> Group
+Esc ..> Voice
+@enduml

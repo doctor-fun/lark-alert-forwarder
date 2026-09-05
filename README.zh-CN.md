@@ -6,16 +6,80 @@ Grafana 的默认 webhook JSON 不能直接发给飞书。这个服务把它转�
 
 只会填 URL、不能加请求头的来源（例如 DataWorks）可以走 `POST /dataworks/alert`，用查询参数带 token 和路由信息。
 
+## 架构
+
+Forwarder 只做三件事：收告警、转成飞书卡片、处理卡片回点。值班、归因、电话都是可选旁路，不配就不走。
+
 ```mermaid
-flowchart LR
-  Grafana -->|POST /grafana/feishu| Forwarder
-  DataWorks -->|POST /dataworks/alert| Forwarder
-  Forwarder -->|互动卡片| 飞书群
-  飞书群 -->|card.action.trigger| Forwarder
-  Forwarder -->|原线程回复| 飞书群
-  Forwarder -.->|可选 AI 归因| Runner
-  Forwarder -.->|可选 L2 电话| Voice
+flowchart TB
+  subgraph Sources["告警来源"]
+    Grafana["Grafana Contact Point"]
+    DataWorks["DataWorks / 其它只能填 URL 的系统"]
+  end
+
+  subgraph Forwarder["lark-alert-forwarder"]
+    Auth["校验 GRAFANA_FORWARDER_TOKEN"]
+    IngressG["POST /grafana/feishu"]
+    IngressD["POST /dataworks/alert"]
+    IngressE["POST /feishu/events"]
+    Route["按 service / severity 选群"]
+    Card["拼互动卡片\n我来处理 / 打开大盘 / AI 归因"]
+    Esc["Escalator 定时扫描\nL1 @ 值班 / L2 电话"]
+  end
+
+  subgraph Lark["飞书"]
+    OpenAPI["OpenAPI\n发卡片 / 回线程"]
+    Group["告警群"]
+    User["值班人点按钮"]
+  end
+
+  subgraph Optional["可选"]
+    Backend["值班 / 工单后端\nALERT_BACKEND_URL"]
+    Runner["只读 Copilot runner"]
+    Voice["阿里云 TTS 电话"]
+  end
+
+  Grafana -->|"Bearer token"| IngressG
+  DataWorks -->|"?token=&service=&severity="| IngressD
+  IngressG --> Auth
+  IngressD --> Auth
+  Auth --> Route
+  Route --> Card
+  Card --> OpenAPI
+  OpenAPI --> Group
+  Route -.-> Backend
+
+  Group --> User
+  User -->|"card.action.trigger"| IngressE
+  IngressE -->|"url_verification / 验签"| Card
+  IngressE -->|"认领 / 转派"| OpenAPI
+  IngressE -.->|"AI 归因"| Runner
+  Runner -.->|"摘要回线程 / 全文走邮件"| OpenAPI
+
+  Esc -.-> Backend
+  Esc -.-> Group
+  Esc -.-> Voice
 ```
+
+告警打进来：
+
+1. Grafana 用 webhook Contact Point 打 `POST /grafana/feishu`，带 `Authorization: Bearer`。不要让 Grafana 直连飞书，默认 payload 没有 `msg_type`。
+2. DataWorks 这类只能配 URL 的来源打 `POST /dataworks/alert`，token 和 `service` / `severity` 放查询参数。
+3. Forwarder 校验 token，读 label，按 `SERVICE_CHAT_ROUTES`、`FEISHU_P1_CHAT_ID` 选群。
+4. 配了应用机器人就走 OpenAPI 发互动卡片；只配了 `FEISHU_WEBHOOK` 就退化成自定义机器人，按钮变成普通链接。
+5. 配了 `ALERT_BACKEND_URL` 时，还会去重/建工单、拿值班人。
+
+人点卡片：
+
+1. 飞书把 `card.action.trigger` 打到 `POST /feishu/events`（先有一次 `url_verification`）。
+2. Forwarder 用 Verification Token / Encrypt Key 验过，看是谁点的。
+3. 「我来处理」在原线程回复并记下处理人；「AI 归因」调可选 runner，群里留摘要，全文可走邮件。
+
+升级（可选）：
+
+1. Escalator 周期性看未认领的告警。
+2. 过 L1：在原线程 @ 值班池。
+3. 过 L2：再 @ leader，并按白名单严重度打阿里云 TTS 电话。
 
 ## 功能
 

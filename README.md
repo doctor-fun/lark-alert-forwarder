@@ -44,6 +44,25 @@ Escalation (optional):
 2. After L1: mention the on-call pool in the same thread.
 3. After L2: mention the leader and, for allowlisted severities, place an Aliyun TTS voice call.
 
+## Alert card
+
+The group sees a Lark interactive card, not the raw Grafana JSON. The header is colored by status: **red for FIRING**, **green for RESOLVED**, orange otherwise.
+
+![Alert card schematic](docs/alert-card-en.png)
+
+Source: [alert-card.en.puml](docs/alert-card.en.puml)
+
+| Area | Content |
+| --- | --- |
+| Title | `[Grafana alert] FIRING <alertname>` |
+| Fields | service, env, severity, status |
+| Body | summary and details; repeats add a "merged into incident" line |
+| People | owner / CC only appear when on-call routing is configured |
+| Actions | App bot: `I got this`, `AI attribution`, `Open dashboard`. `Resolved`, `False alarm`, and silence need the incident backend |
+| Footer | `incident #N` when an incident exists |
+
+With only a custom bot, buttons become links and the click has no identity. The assignee also gets a shorter DM asking them to claim in the group first. Full AI reports go to email; the thread keeps a one-line guess.
+
 ## Features
 
 - Grafana / DataWorks webhook → Lark interactive card

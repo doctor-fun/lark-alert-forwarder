@@ -1,0 +1,34 @@
+@startuml alert-card
+!theme plain
+skinparam backgroundColor #FFFFFF
+skinparam shadowing false
+skinparam defaultFontName "PingFang SC"
+skinparam defaultFontSize 13
+skinparam PackageBorderColor #D0D3D6
+skinparam PackageBackgroundColor #FFFFFF
+skinparam RectangleBorderColor #E5E6EB
+skinparam ArrowColor #FFFFFF
+hide stereotype
+
+title 群里的告警卡片（示意）
+
+package "飞书群 · 互动卡片" {
+  rectangle "<color:#FFFFFF><b>[Grafana告警] FIRING HighP99Latency</b></color>" as hd #C4564A
+
+  rectangle "**服务**             **环境**\napi-gateway         prod\n\n**级别**             **状态**\nP1                  FIRING" as fields
+
+  rectangle "**摘要**：P99 延迟超过阈值\n**详情**：p99 > 1s 持续 5 分钟" as summary
+
+  rectangle "**责任人**：@oncall     **抄送**：值班池\n**触发时间**：2026-09-05 10:00:00     **当前值**：1.37" as meta
+
+  rectangle "【我来处理】   【已修复】   【标为误报】   【AI 归因】   【打开大盘】" as buttons
+
+  rectangle "<size:11>incident #42</size>" as note #F2F3F5
+}
+
+hd -[hidden]down- fields
+fields -[hidden]down- summary
+summary -[hidden]down- meta
+meta -[hidden]down- buttons
+buttons -[hidden]down- note
+@enduml
